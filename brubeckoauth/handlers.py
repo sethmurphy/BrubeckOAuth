@@ -60,7 +60,7 @@ class OAuthRedirectorTestHandler(object):
 # The handlers we actualy use for routing
 ###########################################
 
-class OAuthHandler(WebMessageHandler):
+class OAuthMixin(object):
     """oauth routing handler. All requests come through here.
     you should inheret a handler from this class and implement 
     the methods onAuthenticationSuccess and onAuthenticationFailure.
@@ -124,17 +124,14 @@ class OAuthHandler(WebMessageHandler):
         """ xxx argument
         """
         return self.get_argument('oauth_token', None)
-
-    def __init__(self, application, message, *args, **kwargs):
-        super(OAuthHandler, self).__init__(application, message, *args, **kwargs)
-        logging.debug('OAuthHandler __init__')
-        ## Hook up our Queryset objects here
-        # use a simple in memory Queryset
-        # for production the application should make the choice what to use
-        # I would recommend Redis
-        # TODO: Implement a redis Queryset to use?
-        self.oauth_request_queryset = oauth_request_queryset
  
+    @lazyprop
+    def oauth_request_queryset(self):
+        """ the queryset (default in memory DictQueryset)
+        """
+        return oauth_request_queryset
+
+
     def get(self, provider, action):
         """loads the provider config and routes our request to the proper base methods"""
         try:
