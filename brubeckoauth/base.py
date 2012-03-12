@@ -75,11 +75,11 @@ class OAuthBase(object):
 
         for user_info in user_infos:
             url = user_info[0]
-            query_params = {
+            signature_args = {
                 'oauth_token': oauth_token
             }
-
-            kvs = self._request(provider_settings, 'GET', url, query_params, oauth_request_model=oauth_request_model)
+            request_args = {}
+            kvs = self._request(provider_settings, 'GET', url, request_args, oauth_request_model, signature_args )
 
             if 'response' in kvs:
                 ## some providers mave `meta` and `response` wrappers for what is returned
@@ -183,18 +183,23 @@ class OAuthBase(object):
             kv_dict = dict(u.split('=') for u in content.split('&'))
 
         return kv_dict
+    def request(self, provider_settings, method, url, request_args, oauth_request_model):
+        """this is a simple wrapper to _request that should be used by the client.
+        This is used to make authenticated requests after a user is logged in
+        """
+        return self._request(provider_settings, method, url, request_args, oauth_request_model, {})
             
-    def _request(self, provider_settings, method, url, query_params, oauth_request_model=None):
+    def _request(self, provider_settings, method, url, request_args, oauth_request_model=None, signature_args={}):
         """it is each auth version specifics class to implement this"""
-        raise NotImplementedError("_request(provider_settings, method, url, query_params, oauth_request_model=None) not implemented")
+        raise NotImplementedError
 
     def redirector(self, provider_settings, oauth_request_queryset, session_id):
         """it is each auth version specifics class to implement this"""
-        raise NotImplementedError("redirector(self, provider_settings, oauth_request_queryset, session_id) not implemented")
+        raise NotImplementedError
 
     def callback(provider_settings, oauth_request_model, oauth_token, oauth_verifier, session_id, **kw):
         """it is each auth version specifics class to implement this"""
-        raise NotImplementedError("callback(provider_settings, oauth_request_model, oauth_token, oauth_verifier, session_id, arguments) not implemented")
+        raise NotImplementedError
 
 ##################################################
 # oAuth 1.0a logic (yucky)
@@ -245,11 +250,11 @@ class OAuth1aObject(OAuthBase):
         m = md5.new(str(time.time()) + str(random_number))
         return m.hexdigest()
 
-    def _request(self, provider_settings, http_method, url, params, oauth_request_model=None, post_vars = None):
-        """make a signed request for given provider_settings given a url and optional parameters"""
-        """The following parameters are not needed in optional:"""
-        """oauth_consumer_key,oauth_nonce,oauth_signature_method,"""
-        """oauth_timestamp,oauth_version  """
+    def _request(self, provider_settings, http_method, url, request_args, oauth_request_model=None, signature_args={}):
+        """make a signed request for given provider_settings given a url and optional parameters
+        The following parameters are not needed in optional:
+        oauth_consumer_key,oauth_nonce,oauth_signature_method,
+        oauth_timestamp,oauth_version"""
 
         oauth_secret = ''
         if oauth_request_model != None and oauth_request_model.token_secret != None:
@@ -269,15 +274,15 @@ class OAuth1aObject(OAuthBase):
             'oauth_timestamp': oauth_timestamp,
             'oauth_version': '1.0'
         }
-        if post_vars != None:
-            logging.debug( "oauth_token: %s" % oauth_request_model.token );
-            query_params['oauth_token'] = oauth_request_model.token
+        if request_args != None:
+            if oauth_request_model != None:
+                logging.debug( "oauth_token: %s" % oauth_request_model.token );
+                query_params['oauth_token'] = oauth_request_model.token
         else:
-            post_vars = {}
+            request_args = {}
         # add optional parameters
-
-        query_params.update(params)
-        query_params.update(post_vars)
+        query_params.update(signature_args)
+        query_params.update(request_args)
         logging.debug("query_params -> \n%s" % query_params)
 
         signature_base_string = self._signature_base_string(http_method, url, query_params)
@@ -295,9 +300,9 @@ class OAuth1aObject(OAuthBase):
 
         try:
             if http_method == 'POST':
-                response = requests.post(url, post_vars, **{'headers': { 'Authorization': authorization_header } } )
+                response = requests.post(url, request_args, **{'headers': { 'Authorization': authorization_header } } )
             else:
-                response = requests.get(url, headers = { 'Authorization': authorization_header } )
+                response = requests.get(url, params = request_args, headers = { 'Authorization': authorization_header } )
 
             content = response.content
 
@@ -327,11 +332,11 @@ class OAuth1aObject(OAuthBase):
             
             logging.debug("oauth_callback: %s" % oauth_callback);
 
-            query_params = {
+            signature_args = {
                 'oauth_callback': oauth_callback
             }
 
-            kv_pairs = self._request(provider_settings, 'POST', url, query_params)
+            kv_pairs = self._request(provider_settings, 'POST', url, {}, None, signature_args)
     
             oauth_token = ''
             token_secret = ''
@@ -378,12 +383,12 @@ class OAuth1aObject(OAuthBase):
             logging.debug( "oauth_token: %s" % oauth_token );
             logging.debug( "oauth_verifier: %s" % oauth_verifier );
 
-            query_params = {
+            signature_args = {
                 'oauth_token':oauth_token,
                 'oauth_verifier':oauth_verifier
             }
 
-            kv_pairs = self._request(provider_settings, 'POST', url, query_params, oauth_request_model = oauth_request_model)
+            kv_pairs = self._request(provider_settings, 'POST', url, {}, oauth_request_model, signature_args)
 
             if 'oauth_token' in kv_pairs:
 
@@ -427,17 +432,22 @@ class OAuth2Object(OAuthBase):
     """Methods needed for  oAuth 2.0 authentication"""
 
 
-    def _request(self, provider_settings, http_method, url, params, oauth_request_model=None):
-        """make a signed request for given provider_settings given a url and optional parameters"""
-        """The following parameters are not needed in optional:"""
-        """oauth_consumer_key,oauth_nonce,oauth_signature_method,"""
-        """oauth_timestamp,oauth_version  """
+    def _request(self, provider_settings, http_method, url, request_args={}, oauth_request_model=None, signature_args={}):
+        """make a signed request for given provider_settings given a url and optional parameters
+        The following parameters are not needed in optional:
+        oauth_consumer_key,oauth_nonce,oauth_signature_method,
+        oauth_timestamp,oauth_version
+        params are not required or used for oauth2
+        """
+
+        # For oAuth2 request_args and isgnature_args are treated the same.
+        request_args.update(signature_args);
 
         try:
             if http_method == 'POST':
-                response = requests.post(url, params)
+                response = requests.post(url, request_args)
             else:
-                response = requests.get(url, params = params)
+                response = requests.get(url, params = request_args)
 
             content = response.content
 
