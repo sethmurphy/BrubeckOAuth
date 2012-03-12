@@ -183,18 +183,18 @@ class OAuthBase(object):
             kv_dict = dict(u.split('=') for u in content.split('&'))
 
         return kv_dict
-
+            
     def _request(self, provider_settings, method, url, query_params, oauth_request_model=None):
         """it is each auth version specifics class to implement this"""
-        raise Exception("_request(provider_settings, method, url, query_params, oauth_request_model=None) not implemented")
+        raise NotImplementedError("_request(provider_settings, method, url, query_params, oauth_request_model=None) not implemented")
 
     def redirector(self, provider_settings, oauth_request_queryset, session_id):
         """it is each auth version specifics class to implement this"""
-        raise Exception("redirector(self, provider_settings, oauth_request_queryset, session_id) not implemented")
+        raise NotImplementedError("redirector(self, provider_settings, oauth_request_queryset, session_id) not implemented")
 
     def callback(provider_settings, oauth_request_model, oauth_token, oauth_verifier, session_id, **kw):
         """it is each auth version specifics class to implement this"""
-        raise Exception("callback(provider_settings, oauth_request_model, oauth_token, oauth_verifier, session_id, arguments) not implemented")
+        raise NotImplementedError("callback(provider_settings, oauth_request_model, oauth_token, oauth_verifier, session_id, arguments) not implemented")
 
 ##################################################
 # oAuth 1.0a logic (yucky)
