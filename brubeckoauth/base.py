@@ -29,7 +29,7 @@ from models import OAuthRequest
 ## This will be in Brubeck core soon
 ##
 def lazyprop(method):
-    """ A nifty wrapper to only load preoperties when accessed
+    """ A nifty wrapper to only load properties when accessed
     uses the lazyProperty pattern from: 
     http://j2labs.tumblr.com/post/17669120847/lazy-properties-a-nifty-decorator
     inspired by  a stack overflow question:
@@ -65,13 +65,13 @@ class OAuthBase(object):
         """
         return OAuth2Object()
 
-    def get_user_info(self, settings, oauth_token, oauth_request_model):
+    def get_user_info(self, provider_settings, oauth_token, oauth_request_model):
         """gets additional userinfo after authenticating
         uses USER_INFO from the oauth config file
         Is also used to map provider specific data to application specific values
         """
 
-        user_infos = settings['USER_INFO']
+        user_infos = provider_settings['USER_INFO']
 
         for user_info in user_infos:
             url = user_info[0]
@@ -79,7 +79,7 @@ class OAuthBase(object):
                 'oauth_token': oauth_token
             }
 
-            kvs = self._request(settings, 'GET', url, query_params, oauth_request_model=oauth_request_model)
+            kvs = self._request(provider_settings, 'GET', url, query_params, oauth_request_model=oauth_request_model)
 
             if 'response' in kvs:
                 ## some providers mave `meta` and `response` wrappers for what is returned
@@ -88,7 +88,7 @@ class OAuthBase(object):
             # Map our returned values to application specific labels
             # This way we can respond to an auth request generically in the application
             fields = user_info[1]
-            # use our fields (settings) to map the returned data to our needed format
+            # use our fields (provider_settings) to map the returned data to our needed format
             kvs = self.map_data(kvs, fields)
 
         return kvs        
@@ -159,7 +159,7 @@ class OAuthBase(object):
         return data
 
     def get_oauth_object(self, provider_settings):
-        """returns the proper oauth object to use for the version specified in settings"""
+        """returns the proper oauth object to use for the version specified in provider_settings"""
         ver = provider_settings['OAUTH_VERSION']
         if ver == '2.0':
             return self.oauth2_object
@@ -184,17 +184,17 @@ class OAuthBase(object):
 
         return kv_dict
 
-    def _request(self, settings, method, url, query_params, oauth_request_model=None):
+    def _request(self, provider_settings, method, url, query_params, oauth_request_model=None):
         """it is each auth version specifics class to implement this"""
-        raise Exception("_request(settings, method, url, query_params, oauth_request_model=None) not implemented")
+        raise Exception("_request(provider_settings, method, url, query_params, oauth_request_model=None) not implemented")
 
-    def redirector(self, settings, oauth_request_queryset, session_id):
+    def redirector(self, provider_settings, oauth_request_queryset, session_id):
         """it is each auth version specifics class to implement this"""
-        raise Exception("redirector(self, settings, oauth_request_queryset, session_id) not implemented")
+        raise Exception("redirector(self, provider_settings, oauth_request_queryset, session_id) not implemented")
 
-    def callback(settings, oauth_request_model, oauth_token, oauth_verifier, session_id, **kw):
+    def callback(provider_settings, oauth_request_model, oauth_token, oauth_verifier, session_id, **kw):
         """it is each auth version specifics class to implement this"""
-        raise Exception("callback(settings, oauth_request_model, oauth_token, oauth_verifier, session_id, arguments) not implemented")
+        raise Exception("callback(provider_settings, oauth_request_model, oauth_token, oauth_verifier, session_id, arguments) not implemented")
 
 ##################################################
 # oAuth 1.0a logic (yucky)
@@ -245,8 +245,8 @@ class OAuth1aObject(OAuthBase):
         m = md5.new(str(time.time()) + str(random_number))
         return m.hexdigest()
 
-    def _request(self, settings, http_method, url, params, oauth_request_model=None, post_vars = None):
-        """make a signed request for given settings given a url and optional parameters"""
+    def _request(self, provider_settings, http_method, url, params, oauth_request_model=None, post_vars = None):
+        """make a signed request for given provider_settings given a url and optional parameters"""
         """The following parameters are not needed in optional:"""
         """oauth_consumer_key,oauth_nonce,oauth_signature_method,"""
         """oauth_timestamp,oauth_version  """
@@ -259,8 +259,8 @@ class OAuth1aObject(OAuthBase):
 
         oauth_timestamp = str(int(time.time()))
         oauth_nonce = self._generate_nonce()
-        oauth_consumer_secret = settings['CONSUMER_SECRET']
-        oauth_consumer_key = settings['CONSUMER_KEY']
+        oauth_consumer_secret = provider_settings['CONSUMER_SECRET']
+        oauth_consumer_key = provider_settings['CONSUMER_KEY']
 
         query_params = {
             'oauth_consumer_key': oauth_consumer_key,
@@ -317,13 +317,13 @@ class OAuth1aObject(OAuthBase):
 
         return kv_pairs
 
-    def redirector(self, settings, oauth_request_queryset, session_id):
+    def redirector(self, provider_settings, oauth_request_queryset, session_id):
         """gets the token and redirects the user to the oauth login page """
         """this is always called "statically" from OAuthHandler"""
 
         try:
-            url = settings['REQUEST_TOKEN_URL']
-            oauth_callback = settings['CALLBACK_URL']
+            url = provider_settings['REQUEST_TOKEN_URL']
+            oauth_callback = provider_settings['CALLBACK_URL']
             
             logging.debug("oauth_callback: %s" % oauth_callback);
 
@@ -331,7 +331,7 @@ class OAuth1aObject(OAuthBase):
                 'oauth_callback': oauth_callback
             }
 
-            kv_pairs = self._request(settings, 'POST', url, query_params)
+            kv_pairs = self._request(provider_settings, 'POST', url, query_params)
     
             oauth_token = ''
             token_secret = ''
@@ -350,8 +350,8 @@ class OAuth1aObject(OAuthBase):
                     'token_secret': token_secret,
                     'session_id': session_id,
                     'token': oauth_token,
-                    'provider_tag': settings['PROVIDER_TAG'], 
-                    'provider': settings['PROVIDER_NAME'],
+                    'provider_tag': provider_settings['PROVIDER_TAG'], 
+                    'provider': provider_settings['PROVIDER_NAME'],
                     'data': json.dumps(kv_pairs),
                 }
 
@@ -360,7 +360,7 @@ class OAuth1aObject(OAuthBase):
                 oauth_request_model = OAuthRequest(**data)
                 oauth_request_queryset.create_one(oauth_request_model)
 
-                return settings['AUTHORIZE_URL'] + '?oauth_token=' + kv_pairs['oauth_token']
+                return provider_settings['AUTHORIZE_URL'] + '?oauth_token=' + kv_pairs['oauth_token']
 
         except Exception:
             raise
@@ -368,12 +368,12 @@ class OAuth1aObject(OAuthBase):
         # we shouldn't get here
         raise Exception('message', 'an unknown error occured')
 
-    def callback(self, settings, oauth_request_model, oauth_token, oauth_verifier, session_id, arguments):
+    def callback(self, provider_settings, oauth_request_model, oauth_token, oauth_verifier, session_id, arguments):
         """handle an oAuth 1.0a callback"""
         """this is always called "statically" from OAuthHandler"""
         try:
 
-            url = settings['ACCESS_TOKEN_URL']
+            url = provider_settings['ACCESS_TOKEN_URL']
 
             logging.debug( "oauth_token: %s" % oauth_token );
             logging.debug( "oauth_verifier: %s" % oauth_verifier );
@@ -383,12 +383,12 @@ class OAuth1aObject(OAuthBase):
                 'oauth_verifier':oauth_verifier
             }
 
-            kv_pairs = self._request(settings, 'POST', url, query_params, oauth_request_model = oauth_request_model)
+            kv_pairs = self._request(provider_settings, 'POST', url, query_params, oauth_request_model = oauth_request_model)
 
             if 'oauth_token' in kv_pairs:
 
                 # get our additional user data
-                user_infos = settings['USER_INFO'];
+                user_infos = provider_settings['USER_INFO'];
 
                 oauth_token = kv_pairs['oauth_token'];
                 oauth_token_secret = kv_pairs['oauth_token_secret'];
@@ -398,13 +398,13 @@ class OAuth1aObject(OAuthBase):
                 
                 oauth_request_model.data = json.dumps(kv_pairs)
 
-                kvs = self.get_user_info(settings, oauth_token, oauth_request_model)
+                kvs = self.get_user_info(provider_settings, oauth_token, oauth_request_model)
 
                 kv_pairs.update(kvs)
 
                 # process any aliases on the final data
-                if "ALIASES" in settings:
-                    kv_pairs = self.map_data(kv_pairs, settings["ALIASES"])
+                if "ALIASES" in provider_settings:
+                    kv_pairs = self.map_data(kv_pairs, provider_settings["ALIASES"])
 
                 # save our data
                 logging.debug("data -> \n%s " % kv_pairs)
@@ -427,8 +427,8 @@ class OAuth2Object(OAuthBase):
     """Methods needed for  oAuth 2.0 authentication"""
 
 
-    def _request(self, settings, http_method, url, params, oauth_request_model=None):
-        """make a signed request for given settings given a url and optional parameters"""
+    def _request(self, provider_settings, http_method, url, params, oauth_request_model=None):
+        """make a signed request for given provider_settings given a url and optional parameters"""
         """The following parameters are not needed in optional:"""
         """oauth_consumer_key,oauth_nonce,oauth_signature_method,"""
         """oauth_timestamp,oauth_version  """
@@ -457,7 +457,7 @@ class OAuth2Object(OAuthBase):
         return kv_pairs
 
 
-    def redirector(self, settings, oauth_request_queryset, session_id):
+    def redirector(self, provider_settings, oauth_request_queryset, session_id):
         """handle the redirect to an oauth provider"""
         """this is always called "statically" from OAuthHandler"""
         oauth_request_model_id = str(uuid.uuid1())
@@ -469,23 +469,23 @@ class OAuth2Object(OAuthBase):
             'session_id': session_id,
             'token_secret': '',
             'token': '',
-            'provider_tag': settings['PROVIDER_TAG'],
-            'provider': settings['PROVIDER_NAME'],
+            'provider_tag': provider_settings['PROVIDER_TAG'],
+            'provider': provider_settings['PROVIDER_NAME'],
             'data': ''
         }
 
         oauth_request_model = OAuthRequest(**data)    
         oauth_request_queryset.create_one(oauth_request_model)
-        url = settings['REQUEST_URL']
+        url = provider_settings['REQUEST_URL']
         
         query_params = {
             'state' : oauth_request_model_id,
-            'client_id' : settings['APP_ID'],
-            'scope' : settings['SCOPE'],
-            'redirect_uri' : settings['REDIRECT_URL']
+            'client_id' : provider_settings['APP_ID'],
+            'scope' : provider_settings['SCOPE'],
+            'redirect_uri' : provider_settings['REDIRECT_URL']
         }
-        if 'REQUEST_URL_ADDITIONAL_PARAMS' in settings:
-            query_params.update( settings['REQUEST_URL_ADDITIONAL_PARAMS'] )
+        if 'REQUEST_URL_ADDITIONAL_PARAMS' in provider_settings:
+            query_params.update( provider_settings['REQUEST_URL_ADDITIONAL_PARAMS'] )
 
         query_string = '';
 
@@ -500,10 +500,10 @@ class OAuth2Object(OAuthBase):
         url += query_string
 
         # send user to oauth login
-        logging.debug( "%s url %s" % (settings['PROVIDER_NAME'], url));
+        logging.debug( "%s url %s" % (provider_settings['PROVIDER_NAME'], url));
         return url
 
-    def callback(self, settings, oauth_request_model, oauth_token, oauth_verifier, session_id, arguments):
+    def callback(self, provider_settings, oauth_request_model, oauth_token, oauth_verifier, session_id, arguments):
         """handle the callback from an oauth provider"""
         """this is always called "statically" from OAuthHandler"""
 
@@ -515,38 +515,38 @@ class OAuth2Object(OAuthBase):
 
         logging.debug( "oauth callback: state = %s" % oauth_request_model_id );
         
-        url = settings['ACCESS_TOKEN_REQUEST_URL']
+        url = provider_settings['ACCESS_TOKEN_REQUEST_URL']
 
-        logging.debug('client_id: %s' % settings['APP_ID']);
-        logging.debug('redirect_uri: %s' % settings['REDIRECT_URL']);
-        logging.debug('client_secret: %s' % settings['APP_SECRET']);
+        logging.debug('client_id: %s' % provider_settings['APP_ID']);
+        logging.debug('redirect_uri: %s' % provider_settings['REDIRECT_URL']);
+        logging.debug('client_secret: %s' % provider_settings['APP_SECRET']);
         logging.debug('code: %s'  % code);
 
 
         query_params = { 
-            'client_id': settings['APP_ID'],
-            'redirect_uri': settings['REDIRECT_URL'],
-            'client_secret': settings['APP_SECRET'],
+            'client_id': provider_settings['APP_ID'],
+            'redirect_uri': provider_settings['REDIRECT_URL'],
+            'client_secret': provider_settings['APP_SECRET'],
             'code': code
         }
 
-        if 'ACCESS_TOKEN_REQUEST_ADDITIONAL_PARAMS' in settings:
-            query_params.update( settings['ACCESS_TOKEN_REQUEST_ADDITIONAL_PARAMS'] )
+        if 'ACCESS_TOKEN_REQUEST_ADDITIONAL_PARAMS' in provider_settings:
+            query_params.update( provider_settings['ACCESS_TOKEN_REQUEST_ADDITIONAL_PARAMS'] )
 
-        kv_pairs = self._request(settings, "POST", url, query_params)
+        kv_pairs = self._request(provider_settings, "POST", url, query_params)
 
         if 'access_token' in kv_pairs:
             access_token = kv_pairs['access_token']
             logging.debug( "access_token: %s" % access_token );
             # get a little more data about the user (me query)
 
-            kvs = self.get_user_info(settings, access_token, oauth_request_model)
+            kvs = self.get_user_info(provider_settings, access_token, oauth_request_model)
 
             kv_pairs.update(kvs)
 
             # add any aliases to the final data
-            if "ALIASES" in settings:
-                kv_pairs = self.map_data(kv_pairs, settings["ALIASES"])
+            if "ALIASES" in provider_settings:
+                kv_pairs = self.map_data(kv_pairs, provider_settings["ALIASES"])
 
             oauth_data = json.dumps(kv_pairs)
 
