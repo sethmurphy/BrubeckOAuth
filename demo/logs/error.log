@@ -1,0 +1,58 @@
+[INFO] (src/unixy.c:83) Now running as UID:1000, GID:1000
+[INFO] (src/server.c:257) Starting 0MQ with 1 threads.
+[INFO] (src/request.c:56) MAX limits.header_count=1280
+[INFO] (src/connection.c:720) MAX limits.content_length=10485760, limits.buffer_size=4096, limits.connection_stack_size=32768, limits.client_read_retries=5
+[INFO] (src/connection.c:726) MAX limits.proxy_read_retries=100, limits.proxy_read_retry_warn=10
+[INFO] (src/mongrel2.c:343) Starting Mongrel2/1.7.5. Copyright (C) Zed A. Shaw. Licensed BSD.
+[INFO] (src/server.c:272) Starting server on port 6067
+[INFO] (src/task/fd.c:151) MAX limits.fdtask_stack=102400
+[INFO] (src/superpoll.c:102) Allowing for 2560 hot and 7680 idle file descriptors (dividend was 4)
+[INFO] (src/handler.c:209) MAX allowing limits.handler_targets=128
+[INFO] (src/handler.c:285) Binding handler PUSH socket ipc://run/mongrel2_send with identity: 137b789e-b7eb-475a-8d5b-b16ab54493yun
+[INFO] (src/handler.c:311) Binding listener SUB socket ipc://run/mongrel2_rcv subscribed to: 
+[INFO] (src/control.c:401) Setting up control socket in at ipc://run/control
+[WARN] (src/register.c:320: errno: Resource temporarily unavailable) Killed 1 connections according to min_ping: 120, min_write_rate: 300, min_read_rate: 300
+[WARN] (src/mongrel2.c:187: errno: Resource temporarily unavailable) Timeout task killed 1 tasks, waiting 10 seconds for more.
+[INFO] (src/mongrel2.c:83) SHUTDOWN REQUESTED: GRACEFUL (SIGINT again to EXIT NOW)
+[ERROR] (src/task/net.c:235: errno: Bad file descriptor) Failed to accept after doing a poll on the socket.
+[INFO] (src/mongrel2.c:354) Shutdown requested, goodbye.
+[ERROR] (src/handler.c:180: errno: None) Receive on handler socket failed.
+[ERROR] (src/control.c:91: errno: None) Receive on control failed.
+[ERROR] (src/control.c:413: errno: None) Failed to read message: Success.
+[INFO] (src/control.c:438) Control port exiting with error.
+[ERROR] (src/handler.c:267: errno: None) Failed to deliver 0mq message to handler.
+[ERROR] (src/connection.c:200: errno: Bad file descriptor) Failed to deliver to handler: /
+[INFO] (src/mongrel2.c:282) Shutting down all running tasks as gracefully as possible.
+[INFO] (src/mongrel2.c:290) Tasks now running (including main task): 1
+[INFO] (src/mongrel2.c:299) Removing pid file /run/mongrel2.pid
+[INFO] (src/unixy.c:83) Now running as UID:1000, GID:1000
+[INFO] (src/server.c:257) Starting 0MQ with 1 threads.
+[INFO] (src/request.c:56) MAX limits.header_count=1280
+[INFO] (src/connection.c:720) MAX limits.content_length=10485760, limits.buffer_size=4096, limits.connection_stack_size=32768, limits.client_read_retries=5
+[INFO] (src/connection.c:726) MAX limits.proxy_read_retries=100, limits.proxy_read_retry_warn=10
+[INFO] (src/mongrel2.c:343) Starting Mongrel2/1.7.5. Copyright (C) Zed A. Shaw. Licensed BSD.
+[INFO] (src/server.c:272) Starting server on port 6767
+[INFO] (src/task/fd.c:151) MAX limits.fdtask_stack=102400
+[INFO] (src/superpoll.c:102) Allowing for 2560 hot and 7680 idle file descriptors (dividend was 4)
+[INFO] (src/handler.c:209) MAX allowing limits.handler_targets=128
+[INFO] (src/handler.c:285) Binding handler PUSH socket ipc://run/mongrel2_send with identity: 137b789e-b7eb-475a-8d5b-b16ab54493yun
+[INFO] (src/handler.c:311) Binding listener SUB socket ipc://run/mongrel2_rcv subscribed to: 
+[INFO] (src/control.c:401) Setting up control socket in at ipc://run/control
+[WARN] (src/register.c:320: errno: Resource temporarily unavailable) Killed 1 connections according to min_ping: 120, min_write_rate: 300, min_read_rate: 300
+[WARN] (src/mongrel2.c:187: errno: Resource temporarily unavailable) Timeout task killed 1 tasks, waiting 10 seconds for more.
+[WARN] (src/register.c:320: errno: Resource temporarily unavailable) Killed 1 connections according to min_ping: 120, min_write_rate: 300, min_read_rate: 300
+[WARN] (src/mongrel2.c:187: errno: Resource temporarily unavailable) Timeout task killed 1 tasks, waiting 10 seconds for more.
+[INFO] (src/mongrel2.c:83) SHUTDOWN REQUESTED: MURDER
+[ERROR] (src/task/net.c:235: errno: Bad file descriptor) Failed to accept after doing a poll on the socket.
+[INFO] (src/mongrel2.c:354) Shutdown requested, goodbye.
+[ERROR] (src/handler.c:180: errno: None) Receive on handler socket failed.
+[ERROR] (src/control.c:91: errno: None) Receive on control failed.
+[ERROR] (src/control.c:413: errno: None) Failed to read message: Success.
+[INFO] (src/control.c:438) Control port exiting with error.
+[ERROR] (src/handler.c:267: errno: None) Failed to deliver 0mq message to handler.
+[ERROR] (src/connection.c:200: errno: Bad file descriptor) Failed to deliver to handler: /
+[ERROR] (src/handler.c:267: errno: Bad file descriptor) Failed to deliver 0mq message to handler.
+[ERROR] (src/connection.c:200: errno: Bad file descriptor) Failed to deliver to handler: /login
+[INFO] (src/mongrel2.c:282) Shutting down all running tasks as gracefully as possible.
+[INFO] (src/mongrel2.c:290) Tasks now running (including main task): 1
+[INFO] (src/mongrel2.c:299) Removing pid file /run/mongrel2.pid

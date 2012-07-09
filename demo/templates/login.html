@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Log in{% endblock %}
+{% block head %}
+<script type='text/javascript'>
+
+var qoorateConfig = {
+    API_URI: 'http://brubeckoauth.sethmurphy.com',
+}
+$(document).ready(function() {
+
+    //close the sort drop down if its open
+    var oAuthLogin = function(provider, callback) {
+            var getCallback = function(callback) {
+                return function() {
+                    validateLogin(callback);
+                };
+            };
+            var url = Config.QOORATE_API_URI + '/oauth/' + provider_full + '/login'
+            $.oauthpopup({
+                path: url + '?SESSID=' + $.cookie('SESSID'),
+                callback: getCallback(callback),
+                windowOptions: 'location=0,status=0,width=800,height=400,outerWidth=800,outerHeight=400'
+            });
+    };
+
+    // We send a request, success means we are logged in and we will react accordingly
+    var validateLogin = function(callback) {
+
+        var getCallback = function(callback) {
+            return function(data) {
+                var data_object = parseJSONresponse(data)[0];
+
+                // SM: 20120112 - destroy any dynamic forms we may have had from another login
+                $('#q_ .dyn').fadeOut(250, function(){
+                                            $('#q_ .dyn').html('');
+                                            });
+
+                if( data_object != null && data_object.error == 0 ) {
+                    var oAuthProvider = data_object.oAuthProvider;
+                    var $qSocl = $('#q_socl');
+                    $qSocl.find('.q_inr').attr('class', 'q_inr logged-in ' + oAuthProvider);
+                    $qSocl.find('.ttl.signin').html(qoorateLang.SIGNEDIN);
+                    $qSocl.find('.ttl.logoff').html('<a href="#" id="q_logoff" class="do action logoffUser">' + qoorateLang.LOGOUT + '</a>');
+                    if ( callback != null )
+                        callback.call();
+                }
+            };
+        };
+        
+        $.ajax( {
+           type: 'POST',
+           url: qoorateConfig.PROXY_URI,
+           data: 'action=validateLogin',
+           success: getCallback(callback),
+           error: function (xhr, error) { 
+                    errorMsg(0, error);
+                    $replyLink.removeClass('disabled');
+           }
+        });
+        
+    }
+
+   /*!
+    * jQuery OAuth via popup window plugin
+    *
+    * @author Nobu Funaki @zuzara
+    *
+    * Dual licensed under the MIT and GPL licenses:
+    http://www.opensource.org/licenses/mit-license.php
+    * http://www.gnu.org/licenses/gpl.html
+    */
+    (function($) {
+        $.oauthpopup = function(options)
+        {
+            if (!options || !options.path) {
+                throw new Error("options.path must not be empty");
+            }
+            $.extend({
+                windowName: 'oauthWindow' // should not include space for IE
+                , windowOptions: 'location=0,status=0,width=800,height=400,outerWidth=800,outerHeight=400'
+                , callback: function() { window.location.reload(); }
+            }, options);
+
+            var that = this;
+
+            var getIntervalFunction = function( options, that ) {
+                return function() {
+                    if ( that.oauthWindow.closed == null || 
+                         that.oauthWindow.closed ){
+                        window.clearInterval(that.oauthInterval);
+                        options.callback();
+                    }
+                };
+            }
+ 
+            that.oauthWindow = window.open(options.path, options.windowName, options.windowOptions);
+            that.oauthInterval = window.setInterval(getIntervalFunction(options, that), 1000);
+           
+        };
+    })(jQuery);
+
+$('oauth').click(oAuthLogin);
+
+});
+</script>
+{% endblock %}
+{% block body %}<a class="oauth login tw" href="/oauth/redirect/twitter">login vi twitter</a>.{% endblock %}
