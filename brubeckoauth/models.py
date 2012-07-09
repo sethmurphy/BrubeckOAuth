@@ -7,15 +7,19 @@ import time
 
 from dictshield import fields
 from dictshield.document import Document
-
-
+from dictshield.fields.mongo import ObjectIdField
+#from bson.objectid import ObjectId
 ##
 ## Our dictshield class defintions
 ##
 
 class OAuthRequest(Document):
+
+    class Meta:
+        id_field = fields.StringField
+
     """used to track an auth authentication session"""
-    id = fields.StringField(required=True, max_length=1024, id_field=True)
+    #id = fields.StringField(required=True, max_length=1024, id_field=True)
     api_id = fields.StringField(required=True, max_length=255)
     session_id = fields.StringField(required=True, max_length=1024)
     token_secret = fields.StringField(required=True, max_length=1024)
