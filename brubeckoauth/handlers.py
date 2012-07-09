@@ -113,10 +113,31 @@ class OAuthMixin(object):
         """
         model = None
         if self.oauth_token != None:
-            data = self.oauth_request_queryset.read_one(self.oauth_token)[1]
-            model = OAuthRequest(**data)
+            logging.debug("self.oauth_token: %s" % (self.oauth_token))
+            results = self.oauth_request_queryset.read_one(self.oauth_token)
+            logging.debug("results: %s" % (len(results)))
+            logging.debug("results[0]: %s" % (results[0]))
+            logging.debug("results[1]: %s" % (results[1]))
+            data = results[1]
+            if results[0] != self.oauth_request_queryset.MSG_FAILED:
+                logging.debug("data: %s" % (data))
+                model = OAuthRequest(**data)
+            else:
+                logging.debug("oauth_request_model not found: %s" % (data))
+
         if model == None and self.state != None:
-            data = self.oauth_request_queryset.read_one(self.state)[1]
+            logging.debug("oauth_request_model using state: %s" % (self.state))
+            results = self.oauth_request_queryset.read_one(self.state)
+            logging.debug("results: %s" % (len(results)))
+            logging.debug("results[0]: %s" % (results[0]))
+            logging.debug("results[1]: %s" % (results[1]))
+            if results[0] != self.oauth_request_queryset.MSG_FAILED:
+                data = results[1]
+                logging.debug("data: %s" % (data))
+                model = OAuthRequest(**data)
+            else:
+                logging.debug("oauth_request_model not found by state: %s" % (self.state))
+
             model = OAuthRequest(**data)
         return model
 
