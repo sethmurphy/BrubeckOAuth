@@ -29,11 +29,29 @@ from dictshield.fields import ShieldException
 from models import OAuthRequest
 from base import lazyprop, OAuthBase
 
-## This is the built in data store for the OAuthRequest
-## If you want to run wore than one instance of this application
-## you will need to overide oauth_request_queryset
+## RedisQueryset is used if available
+## Otherwise DictQueryset will be used which only
+## works with a single Brubeck instance architecture
+## You can overide g_oauth_request_queryset
 ## with you own implementation.
-oauth_request_queryset = DictQueryset()
+## we default to DictQueryset for now since we don't have access
+## to the applications settings.
+global g_oauth_request_queryset
+g_oauth_request_queryset = DictQueryset()
+
+## add redis support if available
+global redis_available
+redis_available = False
+try:
+    import redis
+    from redis.exceptions import ConnectionError
+    from brubeck.queryset import RedisQueryset
+    global redis_available
+    redis_available = True
+except Exception:
+    logging.info("Redis module not found (single instance mode: using in memory buffer)")
+    pass
+
 
 ##################################################
 # Test handler 
@@ -137,8 +155,7 @@ class OAuthMixin(object):
                 model = OAuthRequest(**data)
             else:
                 logging.debug("oauth_request_model not found by state: %s" % (self.state))
-
-            model = OAuthRequest(**data)
+                model = OAuthRequest(**data)
         return model
 
     @lazyprop
@@ -152,7 +169,38 @@ class OAuthMixin(object):
         """ the queryset to manage our oauuth_request persistance
         (defaults to in memory DictQueryset).
         """
-        return oauth_request_queryset
+        global g_oauth_request_queryset
+        if redis_available and "REDIS" in self.settings:
+            redis_settings = self.settings["REDIS"]
+            try:
+                # set our default host and port
+                host="127.0.0.1"
+                port=6379
+
+                if "HOST" in redis_settings:
+                    host = redis_settings["HOST"]
+                else:
+                    logging.info("Redis setting HOST not dound, using default: %s" % host)
+
+                if "PORT" in redis_settings:
+                    port = redis_settings["PORT"]
+                else:
+                    logging.info("Redis setting PORT not found, using default: %s" % port)
+
+                redis_server = redis.Redis(host=host, port=port, db=0)
+
+                if redis_server.echo("connected") == "connected":
+                    g_oauth_request_queryset = RedisQueryset(**{"db_conn": redis_server})
+                    logging.debug("Redis server connected (%s:%s)" % (host, port))
+            except ConnectionError as ce:
+                logging.info("Redis ConnectionError (%s:%s): %s" % (host, port, ce.message))
+                logging.info("BrubeckOAuth using single instance mode: using in memory buffer)")
+                pass
+            except Exception as e:
+                logging.info("Redis Exception (%s:%s): %s" % (host, port, e.message))
+                logging.info("BrubeckOAuth using single instance mode: using in memory buffer)")
+                pass
+        return g_oauth_request_queryset
 
     def get(self, provider, action):
         """Loads the provider config and 

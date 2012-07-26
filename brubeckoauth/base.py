@@ -18,7 +18,6 @@ import json
 
 import requests
 from brubeck.auth import authenticated
-from brubeck.queryset import DictQueryset
 from brubeck.templating import load_jinja2_env, Jinja2Rendering
 from dictshield import fields
 from dictshield.document import Document
@@ -27,7 +26,7 @@ from urllib import unquote, quote
 
 from models import OAuthRequest
 
-
+  
 ##
 ## This will be in Brubeck core soon
 ##
