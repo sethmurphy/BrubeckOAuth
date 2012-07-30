@@ -198,7 +198,7 @@ class OAuthBase(object):
         raise NotImplementedError
 
     def redirector(self, provider_settings, oauth_request_queryset,
-                   session_id):
+                   session_id, arguments):
         """it is each auth version specifics class to implement this"""
         raise NotImplementedError
 
@@ -323,7 +323,7 @@ class OAuth1aObject(OAuthBase):
             raise
         return kv_pairs
 
-    def redirector(self, provider_settings, oauth_request_queryset, session_id):
+    def redirector(self, provider_settings, oauth_request_queryset, session_id, arguments):
         """gets the token and redirects the user to the oauth login page"""
         try:
             url = provider_settings['REQUEST_TOKEN_URL']
@@ -353,6 +353,7 @@ class OAuth1aObject(OAuthBase):
                     'provider_tag': provider_settings['PROVIDER_TAG'],
                     'provider': provider_settings['PROVIDER_NAME'],
                     'data': json.dumps(kv_pairs),
+                    'initial_request_args': json.dumps(arguments),
                 }
                 logging.debug("data -> \n%s" % data)
                 oauth_request_model = OAuthRequest(**data)
@@ -440,13 +441,14 @@ class OAuth2Object(OAuthBase):
         return kv_pairs
 
     def redirector(self, provider_settings,
-                   oauth_request_queryset, session_id):
+                   oauth_request_queryset, session_id, arguments):
         """Handles the redirect to an oauth provider"""
         oauth_request_model_id = str(uuid.uuid1())
         logging.debug('oauth_request_model_id: %s' % (
                             oauth_request_model_id
                         )
                      )
+        logging.debug("initial_arguments: %s" % json.dumps(arguments))
         data = {
             'api_id': oauth_request_model_id,
             'id': oauth_request_model_id,
@@ -455,7 +457,8 @@ class OAuth2Object(OAuthBase):
             'token': '',
             'provider_tag': provider_settings['PROVIDER_TAG'],
             'provider': provider_settings['PROVIDER_NAME'],
-            'data': ''
+            'data': '',
+            'initial_request_args': json.dumps(arguments),
         }
         oauth_request_model = OAuthRequest(**data)
         oauth_request_queryset.create_one(oauth_request_model)

@@ -130,6 +130,7 @@ class OAuthMixin(object):
         """ Our model containing state from the oauth request process.
         """
         model = None
+        
         if self.oauth_token != None:
             logging.debug("self.oauth_token: %s" % (self.oauth_token))
             results = self.oauth_request_queryset.read_one(self.oauth_token)
@@ -223,9 +224,16 @@ class OAuthMixin(object):
             if action == 'login':
                 return self.redirect(oauth_object.redirector(provider_settings,
                     self.oauth_request_queryset,
-                    self.session_id))
+                    self.session_id,
+                    self.message.arguments))
             elif action == 'callback':
-                logging.debug(self.message.arguments)
+                # merge our initial arguments for the oauth request 
+                # before redirection to provider with response from provider.
+                # this allows us to keep state after login
+                initial_args = json.loads(self.oauth_request_model.initial_request_args)
+                self.message.arguments.update(initial_args)
+                logging.debug('Merged arguments: %s' % json.dumps(self.message.arguments));
+
                 self._oauth_request_model = oauth_object.callback(
                     provider_settings,
                     self.oauth_request_model, 

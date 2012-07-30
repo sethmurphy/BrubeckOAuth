@@ -27,6 +27,7 @@ class OAuthRequest(Document):
     provider = fields.StringField(required=True, max_length=255)
     provider_tag = fields.StringField(required=True, max_length=2)
     data = fields.StringField(required=True, max_length=5000)
+    initial_request_args = fields.StringField(required=True, max_length=5000)
 
     def __init__(self, *args, **kwargs):
         super(OAuthRequest, self).__init__(**kwargs)
