@@ -46,7 +46,6 @@ try:
     import redis
     from redis.exceptions import ConnectionError
     from brubeck.queryset import RedisQueryset
-    global redis_available
     redis_available = True
 except Exception:
     logging.info("Redis module not found (single instance mode: using in memory buffer)")
@@ -107,11 +106,25 @@ class OAuthMixin(object):
         return self.get_argument('oauth_token', None)
 
     @lazyprop
+    def oauth_error(self):
+        """ error argument.
+        used by oauth2 to send an error message back the calling application.
+        """
+        return self.get_argument('error', None)
+
+    @lazyprop
     def state(self):
         """ state argument.
         used by oauth2 to track request and response to same user.
         """
         return self.get_argument('state', None)
+
+    @lazyprop
+    def code(self):
+        """ code argument.
+        used by oauth2 to track request and response to same user.
+        """
+        return self.get_argument('code', None)
 
     @lazyprop
     def oauth_verifier(self):
@@ -143,8 +156,7 @@ class OAuthMixin(object):
                 model = OAuthRequest(**data)
             else:
                 logging.debug("oauth_request_model not found: %s" % (data))
-
-        if model == None and self.state != None:
+        elif self.state != None:
             logging.debug("oauth_request_model using state: %s" % (self.state))
             results = self.oauth_request_queryset.read_one(self.state)
             logging.debug("results: %s" % (len(results)))
@@ -155,8 +167,26 @@ class OAuthMixin(object):
                 logging.debug("data: %s" % (data))
                 model = OAuthRequest(**data)
             else:
-                logging.debug("oauth_request_model not found by state: %s" % (self.state))
+                logging.debug("oauth_request_model not found: %s" % data)
+        elif self.denied != None:
+            logging.debug("no oauth_token, denied")
+            logging.debug("self.denied: %s" % (self.denied))
+            results = self.oauth_request_queryset.read_one(self.denied)
+            logging.debug("results: %s" % (len(results)))
+            logging.debug("results[0]: %s" % (results[0]))
+            logging.debug("results[1]: %s" % (results[1]))
+            data = results[1]
+            if results[0] != self.oauth_request_queryset.MSG_FAILED:
+                logging.debug("data: %s" % (data))
                 model = OAuthRequest(**data)
+            else:
+                logging.debug("oauth_request_model not found: %s" % (data))
+        else:
+            logging.debug("no oauth_token, state or denied argument returned")
+
+        if model == None:
+            raise Exception("oAuthRequest model not found on return from callback.")
+
         return model
 
     @lazyprop
@@ -164,6 +194,12 @@ class OAuthMixin(object):
         """ oauth_token argument sent by the provider
         """
         return self.get_argument('oauth_token', None)
+
+    @lazyprop
+    def denied(self):
+        """ denied argument sent by the provider (will ne oauth_toeken to retrieve user data
+        """
+        return self.get_argument('denied', None)
 
     @lazyprop
     def oauth_request_queryset(self):
@@ -233,16 +269,20 @@ class OAuthMixin(object):
                 initial_args = json.loads(self.oauth_request_model.initial_request_args)
                 self.message.arguments.update(initial_args)
                 logging.debug('Merged arguments: %s' % json.dumps(self.message.arguments));
-
-                self._oauth_request_model = oauth_object.callback(
-                    provider_settings,
-                    self.oauth_request_model, 
-                    self.oauth_token, 
-                    self.oauth_verifier,
-                    self.session_id,
-                    self.message.arguments
-                )
-                return self.onAuthenticationSuccess(self.oauth_request_model)
+                if self.oauth_token != None or self.state != None:
+                    self._oauth_request_model = oauth_object.callback(
+                        provider_settings,
+                        self.oauth_request_model, 
+                        self.oauth_token, 
+                        self.oauth_verifier,
+                        self.session_id,
+                        self.message.arguments
+                    )
+                    return self.onAuthenticationSuccess(self.oauth_request_model)
+                elif (self.denied != None or self.oauth_error == 'access_denied'):
+                    return self.onAuthenticationFailure(self.oauth_request_model)
+                elif self.code == None:
+                    return self.onAuthenticationError(self.oauth_request_model)
             else:
                 raise Exception("Unsupported action: " + action)
         except Exception as e:
@@ -268,3 +308,8 @@ class OAuthMixin(object):
         """Failure is harsh, deal with it more gracefully if you want to.
         """
         raise Exception("Authentication failed!")
+
+    def onAuthenticationError(self, oauth_request_model):
+        """Error are harsher, and more mysterious, deal with it more gracefully if you want to.
+        """
+        raise Exception("Unknown authentication error!")
