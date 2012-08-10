@@ -269,7 +269,7 @@ class OAuthMixin(object):
                 initial_args = json.loads(self.oauth_request_model.initial_request_args)
                 self.message.arguments.update(initial_args)
                 logging.debug('Merged arguments: %s' % json.dumps(self.message.arguments));
-                if self.oauth_error == None and self.oauth_token != None or self.state != None:
+                if self.oauth_error == None and (self.oauth_token != None or self.state != None):
                     self._oauth_request_model = oauth_object.callback(
                         provider_settings,
                         self.oauth_request_model, 
@@ -279,8 +279,7 @@ class OAuthMixin(object):
                         self.message.arguments
                     )
                     return self.onAuthenticationSuccess(self.oauth_request_model)
-                elif (self.state != None and 
-                    (self.denied != None or self.oauth_error == 'access_denied')):
+                elif self.denied != None or self.oauth_error == 'access_denied':
                     return self.onAuthenticationFailure(self.oauth_request_model)
                 elif self.code == None:
                     return self.onAuthenticationError(self.oauth_request_model)
