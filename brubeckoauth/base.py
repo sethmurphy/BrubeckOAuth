@@ -443,6 +443,7 @@ class OAuth2Object(OAuthBase):
     def redirector(self, provider_settings,
                    oauth_request_queryset, session_id, arguments):
         """Handles the redirect to an oauth provider"""
+
         oauth_request_model_id = str(uuid.uuid1())
         logging.debug('oauth_request_model_id: %s' % (
                             oauth_request_model_id

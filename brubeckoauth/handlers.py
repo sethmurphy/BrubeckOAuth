@@ -143,7 +143,7 @@ class OAuthMixin(object):
         """ Our model containing state from the oauth request process.
         """
         model = None
-        
+
         if self.oauth_token != None:
             logging.debug("self.oauth_token: %s" % (self.oauth_token))
             results = self.oauth_request_queryset.read_one(self.oauth_token)
@@ -258,6 +258,12 @@ class OAuthMixin(object):
             oauth_object = self.oauth_base.get_oauth_object(provider_settings)
             # respond to the proper action
             if action == 'login':
+
+                # application hook
+                result = self.onBeforeRedirect(provider_settings)
+                if self._finished:
+                    return result
+                
                 return self.redirect(oauth_object.redirector(provider_settings,
                     self.oauth_request_queryset,
                     self.session_id,
@@ -294,6 +300,12 @@ class OAuthMixin(object):
         self.set_status(403)
         self.add_to_payload('messages', "Unknown oauth error")
         return self.render();
+
+    def onBeforeRedirect(self, provider_settings):
+        """This gives us a chance to do some validation before we go to oauth
+        """
+        logging.debug("onBeforeRedirect hook empty.")
+        pass
 
     def onAuthenticationSuccess(self, oauth_request_model):
         """it is the applications responsibilty to extend this class and
