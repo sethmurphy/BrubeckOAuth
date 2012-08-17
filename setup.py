@@ -3,7 +3,7 @@
 from distutils.core import setup
  
 setup(name='brubeck-oauth',
-      version='0.1.4',
+      version='0.1.5',
       description='Brubeck OAuth module',
       author='Seth Murphy',
       author_email='seth@brooklyncode.com',
