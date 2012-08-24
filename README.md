@@ -9,12 +9,13 @@ This is an integration of oAuth for Brubeck. You must use an Object Handler in o
 BrubeckOAuth Settings
 ---------------------
 
-How you get your oAuth settings to your handler is up to you
+In order to get your settings into the handler it is assumed your application object can have the following method called on it:
+    get_settings('oauth')
+
+The above return the following oauth Dict:
 
     oauth = {
-        ## Do not really do auth, fake it
-        "OAUTH_TEST": False,
-        
+        ## This is optional, but highly recommended and required if you run more than one Brubeck instance
         "REDIS": {
             "HOST": "localhost",
             "PORT": 6379,
@@ -130,7 +131,9 @@ Here is an example of the simplest handler I could think of:
             """it is the applicatiOns responsibilty to extend this class and
             implement this method. It may be empty if you simply care about authentication.
             The oAuth object used to authenticate is also accessible with self.oauth
-You probably want to set a cookie and save/update a user. You can then use this cookie to retrieve the current_user using the Brubeck Auth model
+            You probably want to set a cookie and save/update a user. 
+            You can then use this cookie to retrieve the current_user using the Brubeck Auth model
+            You also have access to any arguments initially passed with the login request via normal brubeck methods.
             """
             logging.debug("onAuthenticationSuccess")
             # this is all the data returned by the provider
