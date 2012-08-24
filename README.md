@@ -10,6 +10,7 @@ BrubeckOAuth Settings
 ---------------------
 
 In order to get your settings into the handler it is assumed your application object can have the following method called on it:
+
     get_settings('oauth')
 
 The above return the following oauth Dict:
