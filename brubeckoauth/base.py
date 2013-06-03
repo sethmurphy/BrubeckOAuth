@@ -20,10 +20,8 @@ import requests
 from brubeck.auth import authenticated
 from brubeck.templating import load_jinja2_env, Jinja2Rendering
 from dictshield import fields
-from dictshield.document import Document
-from dictshield.fields import ShieldException
 from urllib import unquote, quote
-
+from urlparse import urlparse, parse_qs
 from models import OAuthRequest
 
   
@@ -72,12 +70,25 @@ class OAuthBase(object):
         It calls map_date to map provider specific data to
         application specific values.
         """
+        logging.debug("provider_settings: %s" % provider_settings)
+        logging.debug("oauth_token: %s" % oauth_token)
+        if 'ACCESS_TOKEN_PARAM_NAME' in provider_settings:
+            param_name = provider_settings['ACCESS_TOKEN_PARAM_NAME']
+        else:
+            param_name = 'oauth_token'
         user_infos = provider_settings['USER_INFO']
         for user_info in user_infos:
-            url = user_info[0]
+                
             signature_args = {
-                'oauth_token': oauth_token
+                param_name : oauth_token,
             }
+            url = user_info[0]
+            url_parts = url.split('?')
+            if len(url_parts) > 0:
+                args = parse_qs(urlparse(url).query)
+                url = url_parts[0]
+                signature_args.update(args)
+
             request_args = {}
             kvs = self._request(provider_settings, 'GET', url, request_args,
                                 oauth_request_model, signature_args)

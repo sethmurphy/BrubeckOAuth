@@ -22,9 +22,6 @@ from brubeck.auth import authenticated
 from brubeck.queryset import DictQueryset
 from brubeck.request_handling import Brubeck, WebMessageHandler, JSONMessageHandler, cookie_encode, cookie_decode
 from brubeck.templating import load_jinja2_env, Jinja2Rendering
-from dictshield import fields
-from dictshield.document import Document
-from dictshield.fields import ShieldException
 
 from models import OAuthRequest
 from base import lazyprop, OAuthBase
