@@ -26,6 +26,7 @@ class OAuthRequest(Model):
     provider_tag = types.StringType(required=True, max_length=2)
     data = types.StringType(required=True, max_length=5000)
     initial_request_args = types.StringType(required=True, max_length=5000)
+    error_message = types.StringType(required=True, max_length=255)
 
     def __init__(self, *args, **kwargs):
         super(OAuthRequest, self).__init__(**kwargs)

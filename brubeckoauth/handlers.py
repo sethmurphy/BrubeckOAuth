@@ -96,6 +96,12 @@ class OAuthMixin(object):
         return self.application.get_settings('oauth')
 
     @lazyprop
+    def login_error(self):
+        """ used to display a user friendly login error.
+        """
+        return self.get_argument('login_error', None)
+
+    @lazyprop
     def oauth_token(self):
         """ oauth_token argument.
         used by oauth1a to track request and response to same user.
@@ -273,18 +279,25 @@ class OAuthMixin(object):
                 self.message.arguments.update(initial_args)
                 logging.debug('Merged arguments: %s' % json.dumps(self.message.arguments));
                 if self.oauth_error == None and (self.oauth_token != None or self.state != None):
-                    self._oauth_request_model = oauth_object.callback(
-                        provider_settings,
-                        self.oauth_request_model, 
-                        self.oauth_token, 
-                        self.oauth_verifier,
-                        self.session_id,
-                        self.message.arguments
-                    )
+                    try:
+                        self._oauth_request_model = oauth_object.callback(
+                            provider_settings,
+                            self.oauth_request_model, 
+                            self.oauth_token, 
+                            self.oauth_verifier,
+                            self.session_id,
+                            self.message.arguments
+                        )
+                    except Exception as e:
+                        self.oauth_request_model.error_message = str(e)
+                        return self.onAuthenticationError(self.oauth_request_model)
+
                     return self.onAuthenticationSuccess(self.oauth_request_model)
                 elif self.denied != None or self.oauth_error == 'access_denied':
+                    self.oauth_request_model.error_message = "Authentication failed!"
                     return self.onAuthenticationFailure(self.oauth_request_model)
                 elif self.code == None:
+                    self.oauth_request_model.error_message = "Not authenticated!"
                     return self.onAuthenticationError(self.oauth_request_model)
             else:
                 raise Exception("Unsupported action: " + action)

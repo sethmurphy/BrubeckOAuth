@@ -540,5 +540,5 @@ class OAuth2Object(OAuthBase):
             oauth_request_model.data = oauth_data
             return oauth_request_model
         else:
-            raise Exception("Not Authenticated")
-        raise Exception("Unknown oAuth error")
+            raise Exception("Not Authenticated!")
+        raise Exception("Unknown oAuth error!")
