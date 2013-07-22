@@ -170,7 +170,7 @@ class OAuthMixin(object):
                 logging.debug("data: %s" % (data))
                 model = OAuthRequest(**data)
             else:
-                logging.debug("oauth_request_model not found: %s" % data)
+                logging.debug("oauth_request_model not found.")
         elif self.denied != None:
             logging.debug("no oauth_token, denied")
             logging.debug("self.denied: %s" % (self.denied))

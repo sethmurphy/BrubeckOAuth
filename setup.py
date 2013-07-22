@@ -1,11 +1,11 @@
 #!/usr/bin/env python
  
-from distutils.core import setup
+from setuptools import setup, find_packages
  
 setup(name='brubeck-oauth',
-      version='0.1.7',
+      version='0.1.9',
       description='Brubeck OAuth module',
       author='Seth Murphy',
       author_email='seth@brooklyncode.com',
       url='http://github.com/sethmurphy/BrubeckOAuth',
-      packages=['brubeckoauth'])
+      packages=find_packages())
