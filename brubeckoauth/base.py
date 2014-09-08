@@ -15,6 +15,7 @@ import datetime
 import imp
 import uuid
 import json
+import traceback
 
 import requests
 from brubeck.auth import authenticated
@@ -24,17 +25,17 @@ from urllib import unquote, quote
 from urlparse import urlparse, parse_qs
 from models import OAuthRequest
 
-  
+
 ##
 ## This will be in Brubeck core soon
 ##
 def lazyprop(method):
     """A nifty wrapper to only load properties when accessed
-    uses the lazyProperty pattern from: 
+    uses the lazyProperty pattern from:
     http://j2labs.tumblr.com/post/17669120847/lazy-properties-a-nifty-decorator
     inspired by  a stack overflow question:
     http://stackoverflow.com/questions/3012421/python-lazy-property-decorator
-    This is to replace initializing common variable from cookies, 
+    This is to replace initializing common variable from cookies,
     query string, etc .. that would be in the prepare() method.
     THIS SHOULD BE IN BRUBECK CORE
     """
@@ -45,7 +46,7 @@ def lazyprop(method):
             attr = method(self)
             setattr(self, attr_name, method(self))
         return getattr(self, attr_name)
-    return _lazyprop    
+    return _lazyprop
 
 
 class OAuthBase(object):
@@ -78,7 +79,7 @@ class OAuthBase(object):
             param_name = 'oauth_token'
         user_infos = provider_settings['USER_INFO']
         for user_info in user_infos:
-                
+
             signature_args = {
                 param_name : oauth_token,
             }
@@ -86,14 +87,18 @@ class OAuthBase(object):
             url_parts = url.split('?')
             if len(url_parts) > 0:
                 args = parse_qs(urlparse(url).query)
-                url = url_parts[0]
+                logging.debug("args::::%s" % args)
                 signature_args.update(args)
-
             request_args = {}
+            url = url_parts[0]
+            logging.debug("url::::%s" % url)
+            logging.debug("request_args::::%s" % request_args)
+            logging.debug("signature_args::::%s" % signature_args)
             kvs = self._request(provider_settings, 'GET', url, request_args,
                                 oauth_request_model, signature_args)
+            logging.debug('get_user_info response: %s' % kvs)
             if 'response' in kvs:
-                # Some providers mave `meta` and `response` 
+                # Some providers mave `meta` and `response`
                 # wrappers for what is returned.
                 kvs = kvs['response']
             fields = user_info[1]
@@ -184,6 +189,7 @@ class OAuthBase(object):
 
     def _parse_content(self, content):
         """Parses a key value pair or JSON string into a dict"""
+        logging.debug("_parse_content content: %s" % content)
         kv_dict = {}
         if content == None:
             return kv_dict
@@ -202,7 +208,7 @@ class OAuthBase(object):
         """
         return self._request(provider_settings, method, url, request_args,
                              oauth_request_model, {})
-            
+
     def _request(self, provider_settings, method, url, request_args,
                  oauth_request_model=None, signature_args={}):
         """it is each auth version specifics class to implement this"""
@@ -226,27 +232,52 @@ class OAuth1aObject(OAuthBase):
     def _signature_base_string(self, http_method, base_uri,
                                query_params, delimiter = "%26"):
         """Creates the base string for an authorized request"""
+        logging.debug("OAuth1aObject _signature_base_string http_method %s" % http_method)
+        logging.debug("OAuth1aObject _signature_base_string base_uri %s" % base_uri)
+        logging.debug("OAuth1aObject _signature_base_string query_params %s" % query_params)
+        logging.debug("OAuth1aObject _signature_base_string delimiter %s" % delimiter)
         query_string = ''
         keys = query_params.keys()
         keys.sort()
-        for param in keys:
-            if param != '':
-                if query_string != '':
-                    query_string = "%s%s" % (query_string, delimiter)
-                query_string = "%s%s" % (query_string,
-                                         quote("%s=%s" %(
-                                                    quote(param, ''),
-                                                    quote(query_params[param],
-                                                          '')
-                                                ),
-                                               '')
-                                         )
-        return "%s&%s&%s" % (http_method, quote(  base_uri, '' ), query_string)
+        for param_key in keys:
+            if param_key != '':
+                logging.debug("param_key=%s" % param_key)
+                param_values = query_params[param_key]
+                logging.debug("param_values=%s" % param_values)
+                if not isinstance(param_values, list):
+                    param_values = [param_values]
+                for value in param_values:
+                    if query_string != '':
+                        query_string = "%s%s" % (query_string, delimiter)
+                    logging.debug("value=%s" % value)
+                    query_string = "%s%s" % (query_string,
+                                             quote("%s=%s" %(
+                                                        quote(param_key, ''),
+                                                        quote(value,
+                                                              '')
+                                                    ),
+                                                   '')
+                                             )
+        base_string = "%s&%s&%s" % (http_method, quote(  base_uri, '' ), query_string)
+        logging.debug("returning base_string: %s" % base_string)
+        return base_string
 
     def _sign(self, secret_key, base_string ):
         """Creates a HMAC-SHA1 signature"""
+        logging.debug("OAuth1aObject _sign secret_key: %s" % secret_key)
+        logging.debug("OAuth1aObject _sign secret_key is unicode=: %s" % isinstance(secret_key, unicode))
+        if isinstance(secret_key, unicode):
+            secret_key = secret_key.encode('utf-8')
+            logging.debug("OAuth1aObject _sign secret_key is unicode=: %s" % isinstance(secret_key, unicode))
+        logging.debug("OAuth1aObject _sign base_string: %s" % base_string)
+        logging.debug("OAuth1aObject _sign base_string is unicode=: %s" % isinstance(base_string, unicode))
+        if isinstance(base_string, unicode):
+            base_string = base_string.encode('utf-8')
+            logging.debug("OAuth1aObject _sign base_string is unicode=: %s" % isinstance(base_string, unicode))
         digest = hmac.new(secret_key, base_string, hashlib.sha1).digest()
-        return base64.encodestring(digest).rstrip()
+        encoded_string = base64.encodestring(digest)
+        logging.debug("OAuth1aObject _sign encoded_string: %s" % encoded_string)
+        return encoded_string.rstrip()
 
     def _authorization_header(self, query_params):
         """Build our Authorization header."""
@@ -255,12 +286,17 @@ class OAuth1aObject(OAuthBase):
         keys.sort()
         for param in keys:
             if param != '':
-                authorization_header = "%s %s=\"%s\"," % (
-                                            authorization_header,
-                                            param,
-                                            quote( query_params[param], '')
-                                        )
+                param_values=query_params[param]
+                if not isinstance(param_values, list):
+                    param_values = [param_values]
+                for value in param_values:
+                    authorization_header = "%s %s=\"%s\"," % (
+                                                authorization_header,
+                                                param,
+                                                quote( value, '')
+                                            )
         authorization_header = authorization_header.rstrip(',')
+        logging.debug("authorization_header: %s" % authorization_header)
         return authorization_header
 
     def _generate_nonce(self):
@@ -277,10 +313,10 @@ class OAuth1aObject(OAuthBase):
         oauth_consumer_key,oauth_nonce,oauth_signature_method,
         oauth_timestamp,oauth_version"""
         oauth_secret = ''
-        if (oauth_request_model != None and 
+        if (oauth_request_model != None and
            oauth_request_model.token_secret != None):
             oauth_secret = oauth_request_model.token_secret
-        logging.debug( "_request oauth_secret: %s" % oauth_secret );
+        logging.debug( "OAuth1aObject _request oauth_secret: %s" % oauth_secret );
         oauth_timestamp = str(int(time.time()))
         oauth_nonce = self._generate_nonce()
         oauth_consumer_secret = provider_settings['CONSUMER_SECRET']
@@ -292,31 +328,37 @@ class OAuth1aObject(OAuthBase):
             'oauth_timestamp': oauth_timestamp,
             'oauth_version': '1.0'
         }
+        oauth_token = None
         if request_args != None:
             if oauth_request_model != None:
-                logging.debug( "oauth_token: %s" % oauth_request_model.token );
-                query_params['oauth_token'] = oauth_request_model.token
+                logging.debug( "OAuth1aObject oauth_token: %s" % oauth_request_model.token );
+                oauth_token = oauth_request_model.token
+                query_params['oauth_token'] = oauth_token
         else:
             request_args = {}
         # add optional parameters
         query_params.update(signature_args)
         query_params.update(request_args)
-        logging.debug("query_params -> \n%s" % query_params)
-        signature_base_string = self._signature_base_string(http_method, url, 
+        logging.debug("OAuth1aObject query_params -> \n%s" % query_params)
+        signature_base_string = self._signature_base_string(http_method, url,
                                                             query_params)
-        signature_key = oauth_consumer_secret + "&" + oauth_secret
+        logging.debug("OAuth1aObject _request oauth_consumer_secret: %s" % oauth_consumer_secret);
+        logging.debug("OAuth1aObject _request oauth_secret: %s" % oauth_secret);
+        signature_key = "%s&%s" % (oauth_consumer_secret, oauth_secret)
+        logging.debug("OAuth1aObject _request signature_key: %s" % signature_key);
+        logging.debug("OAuth1aObject _request signature_base_string: %s" % signature_base_string);
         oauth_signature = self._sign(signature_key, signature_base_string)
-        logging.debug("signature_base_string: %s" % signature_base_string);
-        logging.debug("signature_key: %s" % signature_key);
-        logging.debug("oauth_signature: %s" % oauth_signature);
+        logging.debug("OAuth1aObject _request oauth_signature: %s" % oauth_signature);
         query_params.update({'oauth_signature': oauth_signature});
         authorization_header = self._authorization_header(query_params)
-        logging.debug('Authorization: ' + authorization_header + "\n\n")
+        logging.debug('OAuth1aObject _request http_method: %s' % http_method)
+        logging.debug('OAuth1aObject _request url: %s' % url)
+        logging.debug('OAuth1aObject _request Authorization: %s \n\n' % authorization_header)
         try:
             if http_method == 'POST':
                 response = requests.post(
-                    url, request_args, 
-                    **{'headers': {'Authorization': authorization_header}} 
+                    url, request_args,
+                    **{'headers': {'Authorization': authorization_header}}
                 )
             else:
                 response = requests.get(
@@ -324,7 +366,7 @@ class OAuth1aObject(OAuthBase):
                     headers = {'Authorization': authorization_header}
                 )
             content = response.content
-            logging.debug("content -> \n%s" % content);
+            logging.debug("OAuth1aObject _request content -> \n%s" % content);
             if content[0:9] == '<!DOCTYPE':
                 raise Exception(content)
             if content.rfind('&') == -1 and content.rfind('{') == -1:
@@ -378,7 +420,7 @@ class OAuth1aObject(OAuthBase):
         # we shouldn't get here
         raise Exception('message', 'an unknown error occured')
 
-    def callback(self, provider_settings, oauth_request_model, 
+    def callback(self, provider_settings, oauth_request_model,
                  oauth_token, oauth_verifier, session_id, arguments):
         """handle an oAuth 1.0a callback"""
         """this is always called "statically" from OAuthHandler"""
@@ -406,7 +448,7 @@ class OAuth1aObject(OAuthBase):
                 kv_pairs.update(kvs)
                 # process any aliases on the final data
                 if "ALIASES" in provider_settings:
-                    kv_pairs = self.map_data(kv_pairs, 
+                    kv_pairs = self.map_data(kv_pairs,
                                              provider_settings["ALIASES"])
                 # save our data
                 logging.debug("data -> \n%s " % kv_pairs)
@@ -426,7 +468,7 @@ class OAuth2Object(OAuthBase):
     """Methods needed for  oAuth 2.0 authentication"""
     def _request(self, provider_settings, http_method, url, request_args={},
                  oauth_request_model=None, signature_args={}):
-        """make a signed request for given provider_settings 
+        """make a signed request for given provider_settings
         given a url and optional parameters.
         The following parameters are not needed in optional:
         oauth_consumer_key,oauth_nonce,oauth_signature_method,
@@ -495,7 +537,7 @@ class OAuth2Object(OAuthBase):
             query_string += (key + '=' + query_params[key])
         url += query_string
         # send user to oauth login
-        logging.debug("%s url %s" % 
+        logging.debug("%s url %s" %
                       (provider_settings['PROVIDER_NAME'], url))
         return url
 
@@ -526,8 +568,8 @@ class OAuth2Object(OAuthBase):
         if 'access_token' in kv_pairs:
             access_token = kv_pairs['access_token']
             logging.debug("access_token: %s" % access_token)
-            kvs = self.get_user_info(provider_settings, 
-                                     access_token, 
+            kvs = self.get_user_info(provider_settings,
+                                     access_token,
                                      oauth_request_model)
             kv_pairs.update(kvs)
             # add any aliases to the final data

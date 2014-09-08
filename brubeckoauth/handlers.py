@@ -15,6 +15,7 @@ import json
 import datetime
 import imp
 import uuid
+import traceback
 
 import requests
 from urllib import unquote, quote
@@ -50,7 +51,7 @@ except Exception:
 
 
 ##################################################
-# Test handler 
+# Test handler
 ##################################################
 class OAuthRedirectorTestHandler(object):
     """Our development oAuth handler.
@@ -73,7 +74,7 @@ class OAuthRedirectorTestHandler(object):
             user.nickname = oauth_data['username']
             user.current_oauth_provider = 'facebook'
             user.oauth_data = json.dumps(oauth_data)
-        
+
         # adding an existing key just replaces it
         add_user(user)
         return self.redirect("/oauth/facebook/loggedin")
@@ -85,8 +86,8 @@ class OAuthRedirectorTestHandler(object):
 
 class OAuthMixin(object):
     """oauth routing handler mixin. All requests come through here.
-    You should use this as a mixin for your WebMessageHandler and 
-    implement the methods onAuthenticationSuccess and 
+    You should use this as a mixin for your WebMessageHandler and
+    implement the methods onAuthenticationSuccess and
     onAuthenticationFailure.
     """
 
@@ -243,7 +244,7 @@ class OAuthMixin(object):
         return g_oauth_request_queryset
 
     def get(self, provider, action):
-        """Loads the provider config and 
+        """Loads the provider config and
         routes our request to the proper base methods.
         """
         try:
@@ -256,7 +257,7 @@ class OAuthMixin(object):
                 return OAuthRedirectorTestHandler.get(self, self.settings)
             if not provider in self.settings['PROVIDERS']:
                 raise Exception("Unsupported provider: %s" % provider)
-            provider_settings = self.settings['PROVIDERS'][provider]            
+            provider_settings = self.settings['PROVIDERS'][provider]
             logging.debug("provider_settings -> \n%s" % provider_settings)
             oauth_object = self.oauth_base.get_oauth_object(provider_settings)
             # respond to the proper action
@@ -266,13 +267,13 @@ class OAuthMixin(object):
                 result = self.onBeforeRedirect(provider_settings)
                 if self._finished:
                     return result
-                
+
                 return self.redirect(oauth_object.redirector(provider_settings,
                     self.oauth_request_queryset,
                     self.session_id,
                     self.message.arguments))
             elif action == 'callback':
-                # merge our initial arguments for the oauth request 
+                # merge our initial arguments for the oauth request
                 # before redirection to provider with response from provider.
                 # this allows us to keep state after login
                 initial_args = json.loads(self.oauth_request_model.initial_request_args)
@@ -282,18 +283,30 @@ class OAuthMixin(object):
                     try:
                         self._oauth_request_model = oauth_object.callback(
                             provider_settings,
-                            self.oauth_request_model, 
-                            self.oauth_token, 
+                            self.oauth_request_model,
+                            self.oauth_token,
                             self.oauth_verifier,
                             self.session_id,
                             self.message.arguments
                         )
                     except Exception as e:
+                        logging.debug("<<<<<<<<<<<< callback error >>>>>>>>>>>")
+                        tb = traceback.format_exc()
+                        logging.debug(str(e))
+                        logging.debug(tb)
+                        logging.debug(self._oauth_request_model)
+                        logging.debug("<<<<<<<<<<<< -------------- >>>>>>>>>>>")
                         self.oauth_request_model.error_message = str(e)
                         return self.onAuthenticationError(self.oauth_request_model)
 
                     return self.onAuthenticationSuccess(self.oauth_request_model)
                 elif self.denied != None or self.oauth_error == 'access_denied':
+                    logging.debug("<<<<<<<<<<<< authentication failed >>>>>>>>>>>")
+                    tb = traceback.format_exc()
+                    logging.debug(str(e))
+                    logging.debug(tb)
+                    logging.debug(self._oauth_request_model)
+                    logging.debug("<<<<<<<<<<<< --------------------- >>>>>>>>>>>")
                     self.oauth_request_model.error_message = "Authentication failed!"
                     return self.onAuthenticationFailure(self.oauth_request_model)
                 elif self.code == None:
@@ -319,9 +332,9 @@ class OAuthMixin(object):
 
     def onAuthenticationSuccess(self, oauth_request_model):
         """it is the applications responsibilty to extend this class and
-        implement this method to hook into the rest of the applications 
+        implement this method to hook into the rest of the applications
         authentication and user handling.
-        The oauth_request_model is by default 
+        The oauth_request_model is by default
         not persisted beyond this function.
         """
         raise NotImplementedError
