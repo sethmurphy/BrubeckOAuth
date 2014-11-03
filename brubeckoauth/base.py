@@ -316,7 +316,7 @@ class OAuth1aObject(OAuthBase):
         if (oauth_request_model != None and
            oauth_request_model.token_secret != None):
             oauth_secret = oauth_request_model.token_secret
-        logging.debug( "OAuth1aObject _request oauth_secret: %s" % oauth_secret );
+        logging.debug( "OAuth1aObject _request oauth_secret: %s" % oauth_secret )
         oauth_timestamp = str(int(time.time()))
         oauth_nonce = self._generate_nonce()
         oauth_consumer_secret = provider_settings['CONSUMER_SECRET']
@@ -331,9 +331,9 @@ class OAuth1aObject(OAuthBase):
         oauth_token = None
         if request_args != None:
             if oauth_request_model != None:
-                logging.debug( "OAuth1aObject oauth_token: %s" % oauth_request_model.token );
+                logging.debug( "OAuth1aObject oauth_token: %s" % oauth_request_model.token )
                 oauth_token = oauth_request_model.token
-                query_params['oauth_token'] = oauth_token
+                #query_params['oauth_token'] = oauth_token
         else:
             request_args = {}
         # add optional parameters
@@ -342,14 +342,14 @@ class OAuth1aObject(OAuthBase):
         logging.debug("OAuth1aObject query_params -> \n%s" % query_params)
         signature_base_string = self._signature_base_string(http_method, url,
                                                             query_params)
-        logging.debug("OAuth1aObject _request oauth_consumer_secret: %s" % oauth_consumer_secret);
-        logging.debug("OAuth1aObject _request oauth_secret: %s" % oauth_secret);
+        logging.debug("OAuth1aObject _request oauth_consumer_secret: %s" % oauth_consumer_secret)
+        logging.debug("OAuth1aObject _request oauth_secret: %s" % oauth_secret)
         signature_key = "%s&%s" % (oauth_consumer_secret, oauth_secret)
-        logging.debug("OAuth1aObject _request signature_key: %s" % signature_key);
-        logging.debug("OAuth1aObject _request signature_base_string: %s" % signature_base_string);
+        logging.debug("OAuth1aObject _request signature_key: %s" % signature_key)
+        logging.debug("OAuth1aObject _request signature_base_string: %s" % signature_base_string)
         oauth_signature = self._sign(signature_key, signature_base_string)
-        logging.debug("OAuth1aObject _request oauth_signature: %s" % oauth_signature);
-        query_params.update({'oauth_signature': oauth_signature});
+        logging.debug("OAuth1aObject _request oauth_signature: %s" % oauth_signature)
+        query_params['oauth_signature'] =  oauth_signature
         authorization_header = self._authorization_header(query_params)
         logging.debug('OAuth1aObject _request http_method: %s' % http_method)
         logging.debug('OAuth1aObject _request url: %s' % url)
@@ -371,7 +371,7 @@ class OAuth1aObject(OAuthBase):
                 raise Exception(content)
             if content.rfind('&') == -1 and content.rfind('{') == -1:
                 raise Exception(content);
-            kv_pairs = self._parse_content(content);
+            kv_pairs = self._parse_content(content)
         except Exception:
             raise
         return kv_pairs
@@ -381,7 +381,7 @@ class OAuth1aObject(OAuthBase):
         try:
             url = provider_settings['REQUEST_TOKEN_URL']
             oauth_callback = provider_settings['CALLBACK_URL']
-            logging.debug("oauth_callback: %s" % oauth_callback);
+            logging.debug("oauth_callback: %s" % oauth_callback)
             signature_args = {
                 'oauth_callback': oauth_callback
             }
@@ -426,8 +426,8 @@ class OAuth1aObject(OAuthBase):
         """this is always called "statically" from OAuthHandler"""
         try:
             url = provider_settings['ACCESS_TOKEN_URL']
-            logging.debug( "oauth_token: %s" % oauth_token );
-            logging.debug( "oauth_verifier: %s" % oauth_verifier );
+            logging.debug( "oauth_token: %s" % oauth_token )
+            logging.debug( "oauth_verifier: %s" % oauth_verifier )
             signature_args = {
                 'oauth_token':oauth_token,
                 'oauth_verifier':oauth_verifier
@@ -436,16 +436,16 @@ class OAuth1aObject(OAuthBase):
                                      {}, oauth_request_model, signature_args)
             if 'oauth_token' in kv_pairs:
                 # get our additional user data
-                user_infos = provider_settings['USER_INFO'];
                 oauth_token = kv_pairs['oauth_token'];
                 oauth_token_secret = kv_pairs['oauth_token_secret'];
                 oauth_request_model.token = oauth_token
                 oauth_request_model.token_secret = oauth_token_secret
                 oauth_request_model.data = json.dumps(kv_pairs)
-                kvs = self.get_user_info(provider_settings,
-                                         oauth_token,
-                                         oauth_request_model)
-                kv_pairs.update(kvs)
+                if "USER_INFO" in provider_settings:
+                    kvs = self.get_user_info(provider_settings,
+                                             oauth_token,
+                                             oauth_request_model)
+                    kv_pairs.update(kvs)
                 # process any aliases on the final data
                 if "ALIASES" in provider_settings:
                     kv_pairs = self.map_data(kv_pairs,
@@ -568,10 +568,11 @@ class OAuth2Object(OAuthBase):
         if 'access_token' in kv_pairs:
             access_token = kv_pairs['access_token']
             logging.debug("access_token: %s" % access_token)
-            kvs = self.get_user_info(provider_settings,
-                                     access_token,
-                                     oauth_request_model)
-            kv_pairs.update(kvs)
+            if "USER_INFO" in provider_settings:
+                kvs = self.get_user_info(provider_settings,
+                                         access_token,
+                                         oauth_request_model)
+                kv_pairs.update(kvs)
             # add any aliases to the final data
             if "ALIASES" in provider_settings:
                 kv_pairs = self.map_data(kv_pairs,
