@@ -111,7 +111,6 @@ class OAuthBase(object):
         generically in the application
         """
         for field in fields:
-            value = data
             # a field is a list with the following items
             # 1. The name of the attribute to save
             #    in the oauth_data dict (required) ie. "auth_id"
@@ -135,7 +134,6 @@ class OAuthBase(object):
             field_name = field[0]
             field_descriptors = field[1]
             field_formatter = field[2] if len(field) > 2 else None
-            logging.debug("user_info field: %s" % field_name)
             # get our value
             values = []
             i = 0
@@ -144,23 +142,26 @@ class OAuthBase(object):
                 for descriptors in field_descriptors:
                     values.append('')
                     for descriptor in descriptors:
-                        values[i] = value[descriptor] if (value != None and
-                                    descriptor in value) else None
+                        values[i] = data[descriptor] if (data != None and
+                                    descriptor in data) else None
                     i+=1
             else:
                 logging.debug("user_info simple field value")
-                values.append(value)
                 for descriptor in field_descriptors:
-                    values[0] = value[descriptor] if (value != None and
-                                descriptor in value) else None
+                    if not data is None:
+                    values.append('')
+                    values[0] = data[descriptor] if (data != None and
+                                descriptor in data) else None
+
             # Make sure a Non value doesn't blow us up
             def safe_values(value):
                 if value == None:
                     return ''
                 else:
                     return str(value)
+
             # format our field if needed
-            if value != None:
+            if data != None:
                 if field_formatter != None:
                     values = tuple(values)
                     logging.debug("user_info formating '%s' with %s" %
@@ -172,6 +173,7 @@ class OAuthBase(object):
             logging.debug("user_info field[0], value: %s, %s" %
                           (field_name, value))
             data.update({ field_name: value })
+
         # return our data with the new values appended
         return data
 
@@ -564,6 +566,8 @@ class OAuth2Object(OAuthBase):
             query_params.update(
                 provider_settings['ACCESS_TOKEN_REQUEST_ADDITIONAL_PARAMS']
             )
+        logging.debug('url: %s'  % url);
+        logging.debug('query_params: %s'  % query_params);
         kv_pairs = self._request(provider_settings, "POST", url, query_params)
         if 'access_token' in kv_pairs:
             access_token = kv_pairs['access_token']
