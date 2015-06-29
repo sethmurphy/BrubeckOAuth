@@ -129,7 +129,7 @@ class OAuthBase(object):
 
         if response is None or 'error' in response:
             logging.debug('OAuthBase refresh_token response error: %s' % response)
-            return False
+            return None
 
         if 'code' in response:
             signature_args = {
@@ -143,7 +143,7 @@ class OAuthBase(object):
                                 None, signature_args)
             if token_response is None or 'error' in token_response:
                 logging.debug('OAuthBase refresh_token token_response error: %s' % token_response)
-                return False
+                return None
             response.update(token_response)
 
         if 'ALIASES' in provider_settings:
