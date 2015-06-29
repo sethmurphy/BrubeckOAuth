@@ -64,6 +64,95 @@ class OAuthBase(object):
         """ Our OAuth 2.0 implementation"""
         return OAuth2Object()
 
+    def refresh_token(self, provider_settings, oauth_token, oauth_refresh_token = None, oauth_machine_id = None):
+        """ Right now we are just worried about Facebook and Google
+        Facebook simply requires a request to update the token.
+        Google uses a refresh token.
+        Uses the setting REFRESH_TOKEN_URL if there is a refresh token passed.
+
+        """
+        logging.debug("provider_settings: %s" % provider_settings)
+        logging.debug("oauth_token: %s" % oauth_token)
+        if not 'REFRESH_TOKEN_URL' in provider_settings:
+            logging.debug('OAuthBase REFRESH_TOKEN_URL not found')
+            return None
+        if 'REFRESH_TOKEN_PARAM_NAME' in provider_settings:
+            param_name = provider_settings['REFRESH_TOKEN_PARAM_NAME']
+        else:
+            param_name = provider_settings['ACCESS_TOKEN_PARAM_NAME']
+
+        if 'SUPPORTS_REFRESH_TOKEN' in provider_settings and provider_settings['SUPPORTS_REFRESH_TOKEN']:
+            logging.debug("OAuthBase supports refresh token using REFRESH_TOKEN_URL: %s" % provider_settings['REFRESH_TOKEN_URL'])
+            if oauth_refresh_token is None:
+                logging.debug('OAuthBase has no refresh_token, was it lost?')
+                return None
+            else:
+                # make a request to get a new token
+                # refresh_token = The refresh token returned from the authorization code exchange.
+                # client_id = The client ID obtained from the Developers Console.
+                # client_secret = The client secret obtained from the Developers Console.
+                # grant_type = As defined in the OAuth 2.0 specification, this field must contain a value of refresh_token.
+                signature_args = {
+                    param_name : oauth_refresh_token,
+                    "client_id": provider_settings["APP_ID"],
+                    "client_secret": provider_settings["APP_SECRET"],
+                    "grant_type": provider_settings["REFRESH_TOKEN_GRANT_TYPE"] if "REFRESH_TOKEN_GRANT_TYPE" in provider_settings else "refresh_token",
+                }
+        else:
+            logging.debug("OAuthBase making dummy request to REFRESH_TOKEN_URL: %s" % provider_settings['REFRESH_TOKEN_URL'])
+            # make a request to get a code to exchange for a token
+            # access_token = Long-lived user access token.
+            # client_id = The App ID.
+            # client_secret = The app's app secret.
+            # redirect_uri = The redirect URI must be set to the exact value in the app's configuration.
+            # Examples: https://graph.facebook.com/oauth/client_code?access_token=...&client_secret=...&redirect_uri=...&client_id=
+            signature_args = {
+                param_name : oauth_token,
+                "client_secret": provider_settings["APP_SECRET"],
+                "redirect_uri": provider_settings["REDIRECT_URL"],
+                "client_id": provider_settings["APP_ID"],
+            }
+
+        if not oauth_machine_id is None:
+            signature_args['machine_id'] = oauth_machine_id
+
+        oauth_object = self.get_oauth_object(provider_settings)
+        request_args = signature_args
+        http_method = provider_settings['REFRESH_TOKEN_METHOD'] if 'REFRESH_TOKEN_METHOD' in provider_settings else "POST"
+        response = oauth_object._request(provider_settings, http_method, provider_settings['REFRESH_TOKEN_URL'], request_args,
+                            None, signature_args)
+        logging.debug('refresh_token response: %s' % response)
+        if 'response' in response:
+            # Some providers mave `meta` and `response`
+            # wrappers for what is returned.
+            response = response['response']
+
+        if response is None or 'error' in response:
+            logging.debug('OAuthBase refresh_token response error: %s' % response)
+            return False
+
+        if 'code' in response:
+            signature_args = {
+                "code" : response["code"],
+                "client_secret": provider_settings["APP_SECRET"],
+                "redirect_uri": provider_settings["REDIRECT_URL"],
+                "client_id": provider_settings["APP_ID"],
+            }
+            http_method = provider_settings['REFRESH_TOKEN_METHOD'] if 'REFRESH_TOKEN_METHOD' in provider_settings else "POST"
+            token_response = oauth_object._request(provider_settings, http_method, provider_settings['ACCESS_TOKEN_REQUEST_URL'], request_args,
+                                None, signature_args)
+            if token_response is None or 'error' in token_response:
+                logging.debug('OAuthBase refresh_token token_response error: %s' % token_response)
+                return False
+            response.update(token_response)
+
+        if 'ALIASES' in provider_settings:
+            fields = provider_settings['REFRESH_ALIASES']
+            response = self.map_data(response, fields)
+            logging.debug('refresh_token mapped response: %s' % response)
+
+        return response
+
     def get_user_info(self, provider_settings, oauth_token,
                       oauth_request_model):
         """gets additional userinfo after authenticating.
@@ -138,7 +227,7 @@ class OAuthBase(object):
             values = []
             i = 0
             if isinstance(field_descriptors[0], list):
-                logging.debug("user_info compound field value")
+                logging.debug("map_data compound field value")
                 for descriptors in field_descriptors:
                     values.append('')
                     for descriptor in descriptors:
@@ -146,12 +235,11 @@ class OAuthBase(object):
                                     descriptor in data) else None
                     i+=1
             else:
-                logging.debug("user_info simple field value")
+                logging.debug("map_data simple field value")
                 for descriptor in field_descriptors:
                     if not data is None:
-                    values.append('')
-                    values[0] = data[descriptor] if (data != None and
-                                descriptor in data) else None
+                        values.append(data[descriptor] if (data != None and
+                                descriptor in data) else None)
 
             # Make sure a Non value doesn't blow us up
             def safe_values(value):
@@ -164,13 +252,13 @@ class OAuthBase(object):
             if data != None:
                 if field_formatter != None:
                     values = tuple(values)
-                    logging.debug("user_info formating '%s' with %s" %
+                    logging.debug("map_data formating '%s' with %s" %
                                   (field_formatter, values))
                     value = field_formatter % values
                 else:
-                    logging.debug("user_info joining %s" % (values))
+                    logging.debug("map_data joining %s" % (values))
                     value = "".join(map(safe_values, values))
-            logging.debug("user_info field[0], value: %s, %s" %
+            logging.debug("map_data field[0], value: %s, %s" %
                           (field_name, value))
             data.update({ field_name: value })
 

@@ -302,9 +302,6 @@ class OAuthMixin(object):
                     return self.onAuthenticationSuccess(self.oauth_request_model)
                 elif self.denied != None or self.oauth_error == 'access_denied':
                     logging.debug("<<<<<<<<<<<< authentication failed >>>>>>>>>>>")
-                    tb = traceback.format_exc()
-                    logging.debug(str(e))
-                    logging.debug(tb)
                     logging.debug(self._oauth_request_model)
                     logging.debug("<<<<<<<<<<<< --------------------- >>>>>>>>>>>")
                     self.oauth_request_model.error_message = "Authentication failed!"
